@@ -1,1 +1,116 @@
 @import "tailwindcss";
+
+/* ============================================================
+   BugSite design layer (v2 redesign)
+   Pure presentation — no bug logic lives here. Restyling is
+   done via Tailwind utilities in components plus these shared
+   tokens / component classes / animations.
+   ============================================================ */
+
+:root {
+    --bs-ink: #0b1020;
+    --bs-accent: #7c3aed;      /* violet-600 */
+    --bs-accent-2: #4f46e5;    /* indigo-600 */
+    --bs-accent-soft: #ede9fe; /* violet-100 */
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    font-family: 'Plus Jakarta Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
+    /* Soft, branded backdrop behind the whole SPA. */
+    background:
+        radial-gradient(1100px 600px at 100% -10%, rgba(124, 58, 237, 0.10), transparent 60%),
+        radial-gradient(900px 500px at -10% 10%, rgba(79, 70, 229, 0.10), transparent 55%),
+        #f6f7fb;
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Horizontal scroll strips (nav on mobile, chip rows) hide their bar. */
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Reusable brand gradient text + surfaces. */
+.bs-gradient-text {
+    background: linear-gradient(90deg, var(--bs-accent-2), var(--bs-accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.bs-gradient-bg {
+    background: linear-gradient(120deg, var(--bs-accent-2), var(--bs-accent) 55%, #db2777);
+}
+
+/* Glassy card used by the redesigned chrome. */
+.bs-card {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(79, 70, 229, 0.18);
+}
+
+/* Lift-on-hover interaction for product cards. */
+.bs-lift {
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.bs-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 40px -18px rgba(79, 70, 229, 0.35);
+}
+
+/* Marquee for the announcement bar. */
+@keyframes bs-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+.bs-marquee {
+    display: inline-flex;
+    white-space: nowrap;
+    animation: bs-marquee 26s linear infinite;
+}
+
+/* Skeleton shimmer for loading states. */
+@keyframes bs-shimmer {
+    100% { transform: translateX(100%); }
+}
+.bs-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: #e8eaf1;
+}
+.bs-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+    animation: bs-shimmer 1.4s infinite;
+}
+
+/* Subtle pop for badges / toasts. */
+@keyframes bs-pop {
+    0% { transform: scale(0.85); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+.bs-pop {
+    animation: bs-pop 0.18s ease-out;
+}
+
+/* Slide-in for the toast stack. */
+@keyframes bs-slide-in {
+    from { transform: translateY(12px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.bs-slide-in {
+    animation: bs-slide-in 0.22s ease-out;
+}

@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "bugsite-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "bug-site/bug-site", "run", "dev"],
+      "port": 5173,
+      "autoPort": true
+    }
+  ]
+}

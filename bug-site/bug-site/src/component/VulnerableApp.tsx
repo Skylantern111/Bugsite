@@ -4,7 +4,7 @@ import {
     Shield, Receipt, MousePointerClick, CloudRain, Skull, GitCommit,
     Headphones, User, RefreshCw, Eye, Trash2, Send, Info, Heart, Code,
     Menu, X, Home, Settings, CreditCard, ListOrdered, Search, ExternalLink, Cpu,
-    UserCircle, Database, Lock, AlertTriangle, FileText
+    UserCircle, Database, Lock, AlertTriangle, FileText, Clock
 } from 'lucide-react';
 
 // --- Types ---
@@ -136,7 +136,7 @@ const NewsletterModal = ({ onClose }: { onClose: () => void }) => {
                     <X className="w-6 h-6" />
                 </button>
                 <h2 className="text-2xl font-bold text-slate-800 mb-2">Wait! Don't miss out!</h2>
-                <p className="text-slate-600 mb-6 text-sm">Subscribe to our newsletter to receive 50% off your first BugSafari hunt. This modal blocks all underlying interactions until dismissed.</p>
+                <p className="text-slate-600 mb-6 text-sm">Subscribe to our newsletter to receive 50% off your first BugSite hunt. This modal blocks all underlying interactions until dismissed.</p>
                 <input type="email" placeholder="Enter your email" className="w-full border border-slate-300 rounded-lg px-4 py-2 mb-4" />
                 <button onClick={onClose} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition-colors">
                     Subscribe & Close
@@ -154,11 +154,27 @@ const NewsletterModal = ({ onClose }: { onClose: () => void }) => {
 
 function VulnerableAppCore() {
     // --- ROUTING & LAYOUT STATE ---
-    const [currentPage, setCurrentPage] = useState<'dashboard' | 'settings' | 'checkout'>('dashboard');
+    const [currentPage, setCurrentPage] = useState<'dashboard' | 'settings' | 'checkout' | 'analytics' | 'notifications' | 'users'>('dashboard');
     const [showNewsletter, setShowNewsletter] = useState(false);
     const [cookieConsent, setCookieConsent] = useState(false);
 
-    // Trigger annoying popup after 2 seconds for BugSafari training
+    // === CONTINUOUS LOOP SYSTEM ===
+    const [loopEnabled, setLoopEnabled] = useState(false);
+    const [loopSpeed, setLoopSpeed] = useState(5000);
+    const pages: Array<'dashboard' | 'settings' | 'checkout' | 'analytics' | 'notifications' | 'users'> = ['dashboard', 'analytics', 'notifications', 'users', 'settings', 'checkout'];
+
+    useEffect(() => {
+        if (!loopEnabled) return;
+        const interval = setInterval(() => {
+            setCurrentPage(prev => {
+                const currentIndex = pages.indexOf(prev);
+                return pages[(currentIndex + 1) % pages.length];
+            });
+        }, loopSpeed);
+        return () => clearInterval(interval);
+    }, [loopEnabled, loopSpeed]);
+
+    // Trigger annoying popup after 2 seconds for BugSite training
     useEffect(() => {
         const timer = setTimeout(() => setShowNewsletter(true), 2000);
         return () => clearTimeout(timer);
@@ -316,7 +332,7 @@ function VulnerableAppCore() {
     const [profileError, setProfileError] = useState(false);
 
     useEffect(() => {
-        localStorage.setItem('bugsafari_profile_cache', JSON.stringify(profile));
+        localStorage.setItem('bugsite_profile_cache', JSON.stringify(profile));
     }, [profile]);
 
     const handleLogout = () => {
@@ -415,7 +431,7 @@ function VulnerableAppCore() {
 
     const handleFormSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        alert("Form Submitted! BugSafari bypassed constraints.");
+        alert("Form Submitted! BugSite bypassed constraints.");
     };
 
     // === BUG 21: Index as Key (State Corruption) ===
@@ -460,6 +476,47 @@ function VulnerableAppCore() {
         console.log("Result:", result);
     };
 
+    // === ANALYTICS PAGE NEW BUG STATES (before return) ===
+    // BUG 25: Graph Manipulation
+    const [graphData, setGraphData] = useState<number[]>([100, 200, 150, 300, 250]);
+    const [showFakeData, setShowFakeData] = useState(false);
+    const toggleGraphData = () => {
+        setShowFakeData(!showFakeData);
+        setGraphData(showFakeData ? [100, 200, 150, 300, 250] : [999, 999, 999, 999, 999]);
+    };
+
+    // BUG 26: Export Corruption
+    const [exportData] = useState([
+        { id: 1, name: "Product A", price: 99.99, description: "A really long description that should be truncated during export to CSV without proper handling" },
+        { id: 2, name: "Product B", price: 149.99, description: "Another product with a very long description that might cause encoding issues" }
+    ]);
+    const handleExportCSV = () => {
+        const csv = exportData.map(item => `${item.id},${item.name},${item.price},"${item.description}"`).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'export.csv';
+        a.click();
+    };
+    const handleExportJSON = () => {
+        const json = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'export.json';
+        a.click();
+    };
+
+    // BUG 27: Timezone Desync
+    const [timezone, setTimezone] = useState('UTC');
+    const [displayTime, setDisplayTime] = useState('');
+    useEffect(() => {
+        const now = new Date();
+        setDisplayTime(now.toISOString());
+    }, [timezone]);
+
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
 
@@ -478,7 +535,7 @@ function VulnerableAppCore() {
                 <div className="flex items-center gap-3">
                     <div className="bg-green-100 p-2 rounded-lg"><Bug className="w-6 h-6 text-green-600" /></div>
                     <div>
-                        <span className="text-xl font-bold block leading-tight">BugSafari Env</span>
+                        <span className="text-xl font-bold block leading-tight">BugSite Env</span>
                         <span className="text-[10px] uppercase font-bold text-red-500 tracking-wider">Target Acquired</span>
                     </div>
                 </div>
@@ -501,8 +558,52 @@ function VulnerableAppCore() {
                     >
                         <Settings className="w-4 h-4" /> Settings
                     </button>
+                    <button
+                        onClick={() => setCurrentPage('analytics')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${currentPage === 'analytics' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                        <Activity className="w-4 h-4" /> Analytics
+                    </button>
+                    <button
+                        onClick={() => setCurrentPage('notifications')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${currentPage === 'notifications' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                        <AlertTriangle className="w-4 h-4" /> Alerts
+                    </button>
+                    <button
+                        onClick={() => setCurrentPage('users')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${currentPage === 'users' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                        <UserCircle className="w-4 h-4" /> Users
+                    </button>
                 </div>
             </nav>
+
+            {/* Continuous Loop Control Panel */}
+            <div className="bg-slate-800 border-b border-slate-700 px-6 py-2 flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setLoopEnabled(!loopEnabled)}
+                        className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1.5 ${loopEnabled ? 'bg-green-500 text-white' : 'bg-slate-600 text-slate-300 hover:bg-slate-500'}`}
+                    >
+                        <RefreshCw className={`w-3 h-3 ${loopEnabled ? 'animate-spin' : ''}`} />
+                        {loopEnabled ? 'LOOP ACTIVE' : 'Loop Off'}
+                    </button>
+                    <select
+                        value={loopSpeed}
+                        onChange={(e) => setLoopSpeed(Number(e.target.value))}
+                        className="bg-slate-700 text-white text-xs px-2 py-1 rounded border border-slate-600"
+                    >
+                        <option value={3000}>3s</option>
+                        <option value={5000}>5s</option>
+                        <option value={8000}>8s</option>
+                        <option value={10000}>10s</option>
+                    </select>
+                </div>
+                <span className="text-xs text-slate-400">
+                    Current: <span className="text-green-400 font-semibold">{currentPage.toUpperCase()}</span>
+                </span>
+            </div>
 
             <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 space-y-6 flex-grow mb-20">
 
@@ -1008,7 +1109,7 @@ function VulnerableAppCore() {
                         </div>
 
                         {/* New Form Target */}
-                        <Card title="Account Security" icon={Shield} badgeText="CLIENT VALIDATION" badgeColor="pink" infoText="BugSafari should strip 'maxLength', 'pattern', and 'disabled' before submitting.">
+                        <Card title="Account Security" icon={Shield} badgeText="CLIENT VALIDATION" badgeColor="pink" infoText="BugSite should strip 'maxLength', 'pattern', and 'disabled' before submitting.">
                             <form onSubmit={handleFormSubmit} className="space-y-4">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 mb-1">Email (Max 20 chars)</label>
@@ -1073,7 +1174,7 @@ function VulnerableAppCore() {
                         </Card>
 
                         {/* Card 15: Cache Pollution & Liar Label */}
-                        <Card title="User Profile" icon={User} badgeText="CACHE POLLUTION" badgeColor="purple" infoText="localStorage[&quot;bugsafari_profile_cache&quot;] = &quot;{polluted}&quot;">
+                        <Card title="User Profile" icon={User} badgeText="CACHE POLLUTION" badgeColor="purple" infoText="localStorage[&quot;bugsite_profile_cache&quot;] = &quot;{polluted}&quot;">
                             {profile.isLoggedIn ? (
                                 <>
                                     <div className="flex items-center gap-3 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
@@ -1150,12 +1251,148 @@ function VulnerableAppCore() {
                         </Card>
                     </div>
                 )}
+
+                {/* ANALYTICS PAGE (Training Ground for AI Testing) */}
+                {currentPage === 'analytics' && (
+                    <div className="max-w-4xl mx-auto">
+                        <header className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mb-6">
+                            <h2 className="text-lg font-bold">DOM Complexity: Analytics</h2>
+                            <p className="text-sm text-slate-500">Data visualization bugs for AI training. Graph manipulation, timezone issues, export corruption.</p>
+                        </header>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Card 25: Graph Manipulation */}
+                            <Card title="Revenue Graph" icon={Activity} badgeText="GRAPH BUGS" badgeColor="blue" infoText="Graph manipulation - fake data injection, legend desync. Toggle shows inverted logic.">
+                                <div className="h-32 bg-slate-100 rounded-lg flex items-center justify-center mb-3">
+                                    <div className="flex items-end gap-1 h-20">
+                                        {graphData.map((val, i) => (
+                                            <div key={i} className="w-6 bg-blue-500 rounded-t" style={{ height: `${(val / 1000) * 100}%` }}></div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <button onClick={toggleGraphData} className="w-full bg-blue-50 text-blue-600 py-2 rounded text-sm font-medium hover:bg-blue-100">
+                                    {showFakeData ? 'Show Fake Data (Currently Active)' : 'Toggle Data Source'}
+                                </button>
+                                <p className="text-xs text-slate-400 mt-2">Current: {showFakeData ? 'FAKE DATA' : 'REAL DATA'}</p>
+                            </Card>
+
+                            {/* Card 26: Export Corruption */}
+                            <Card title="Data Export" icon={FileText} badgeText="EXPORT CORRUPTION" badgeColor="cyan" infoText="CSV encoding issues, data truncation. Long descriptions break export.">
+                                <div className="space-y-2 mb-3">
+                                    <div className="text-xs text-slate-500">Records: {exportData.length}</div>
+                                    <div className="text-xs text-slate-400">Click export to see bugs in action</div>
+                                </div>
+                                <button onClick={handleExportCSV} className="w-full bg-slate-100 text-slate-600 py-2 rounded text-sm hover:bg-slate-200 mb-2">
+                                    Export CSV
+                                </button>
+                                <button onClick={handleExportJSON} className="w-full bg-slate-100 text-slate-600 py-2 rounded text-sm hover:bg-slate-200">
+                                    Export JSON
+                                </button>
+                            </Card>
+
+                            {/* Card 27: Timezone Desync */}
+                            <Card title="Timezone Display" icon={Clock} badgeText="TIMEZONE BUG" badgeColor="yellow" infoText="Always shows UTC regardless of timezone setting.">
+                                <div className="space-y-2 mb-3">
+                                    <select
+                                        value={timezone}
+                                        onChange={(e) => setTimezone(e.target.value)}
+                                        className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+                                    >
+                                        <option value="UTC">UTC</option>
+                                        <option value="EST">EST</option>
+                                        <option value="PST">PST</option>
+                                    </select>
+                                    <div className="font-mono text-sm text-slate-600">{displayTime}</div>
+                                </div>
+                                <p className="text-xs text-red-400">BUG: Always uses UTC!</p>
+                            </Card>
+
+                            {/* Card 28: Legend Desync */}
+                            <Card title="Chart Legend" icon={Database} badgeText="LEGEND DESYNC" badgeColor="purple" infoText="Legend doesn't match chart data.">
+                                <div className="flex gap-2 mb-3">
+                                    <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                                    <span className="text-xs">Revenue</span>
+                                    <div className="w-4 h-4 bg-green-500 rounded ml-2"></div>
+                                    <span className="text-xs">Costs (hidden)</span>
+                                </div>
+                                <div className="flex items-end gap-1 h-20">
+                                    <div className="w-8 bg-blue-500 rounded-t h-16"></div>
+                                    <div className="w-8 bg-blue-500 rounded-t h-12"></div>
+                                    <div className="w-8 bg-blue-500 rounded-t h-20"></div>
+                                </div>
+                                <p className="text-xs text-red-400 mt-2">BUG: Green data hidden but in legend!</p>
+                            </Card>
+                        </div>
+                    </div>
+                )}
+
+                {/* NOTIFICATIONS PAGE (Training Ground for AI Testing) */}
+                {currentPage === 'notifications' && (
+                    <div className="max-w-4xl mx-auto">
+                        <header className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mb-6">
+                            <h2 className="text-lg font-bold">DOM Complexity: Notifications</h2>
+                            <p className="text-sm text-slate-500">Toast/Notification system bugs for AI training. Stacking, auto-dismiss, priority issues.</p>
+                        </header>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Card title="Toast Queue" icon={AlertTriangle} badgeText="STACKING" badgeColor="orange" infoText="Toast stacking overflow, auto-dismiss race conditions">
+                                <div className="space-y-2">
+                                    <div className="bg-slate-100 p-2 rounded text-xs text-slate-500">Sample Toast 1</div>
+                                    <div className="bg-slate-100 p-2 rounded text-xs text-slate-500">Sample Toast 2</div>
+                                </div>
+                            </Card>
+                            <Card title="Notification Settings" icon={Settings} badgeText="PRIORITY BUG" badgeColor="yellow" infoText="Priority inversion, notification memory leak">
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input type="checkbox" className="rounded" /> Enable notifications
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input type="checkbox" className="rounded" /> Auto-dismiss
+                                    </label>
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
+                )}
+
+                {/* USERS PAGE (Training Ground for AI Testing) */}
+                {currentPage === 'users' && (
+                    <div className="max-w-4xl mx-auto">
+                        <header className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mb-6">
+                            <h2 className="text-lg font-bold">DOM Complexity: User Management</h2>
+                            <p className="text-sm text-slate-500">Auth & Permission bugs for AI training. Privilege escalation, session fixation.</p>
+                        </header>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Card title="User List" icon={UserCircle} badgeText="SESSION FIX" badgeColor="green" infoText="Session fixation, privilege escalation vectors">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 p-2 bg-slate-50 rounded">
+                                        <div className="w-6 h-6 bg-purple-500 rounded-full"></div>
+                                        <span className="text-sm">admin@company.com</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 p-2 bg-slate-50 rounded">
+                                        <div className="w-6 h-6 bg-blue-500 rounded-full"></div>
+                                        <span className="text-sm">user@company.com</span>
+                                    </div>
+                                </div>
+                            </Card>
+                            <Card title="Role Management" icon={Lock} badgeText="PERMISSION DRIFT" badgeColor="red" infoText="Permission drift, role assignment race conditions">
+                                <div className="space-y-2">
+                                    <select className="w-full border border-slate-300 rounded px-3 py-2 text-sm">
+                                        <option>Select Role</option>
+                                        <option>Admin</option>
+                                        <option>User</option>
+                                        <option>Guest</option>
+                                    </select>
+                                    <button className="w-full bg-slate-800 text-white py-2 rounded text-sm">Assign Role</button>
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
-// --- AI RECOVERY SYSTEM (UPGRADED ERROR BOUNDARY) ---
+// --- AI RECOVERY SYSTEM
 
 class AppErrorBoundary extends React.Component<{ children: React.ReactNode, onReset: () => void }, { hasError: boolean, error: Error | null }> {
     constructor(props: any) {
