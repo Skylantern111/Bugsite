@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Eye, X, Trash2, SlidersHorizontal } from 'lucide-react';
 import { PRODUCTS, CATEGORIES } from '../data/products';
+import { fetchProducts } from '../lib/api';
 import { useCart } from '../context/cartStore';
 import ProductCard from '../components/ui/ProductCard';
 import StarRating from '../components/ui/StarRating';
@@ -34,8 +35,27 @@ export default function Catalog() {
     const [sort, setSort] = useState('featured');
     const [maxPrice, setMaxPrice] = useState(250);
 
+    // Products now come from the backend (Express + MongoDB) when it's up.
+    // Seeded with the exact same data, so the shape is identical. Falls back to
+    // the bundled static PRODUCTS if the API is unreachable — this fetch is a
+    // data source swap only and does not alter any bug behavior below.
+    const [products, setProducts] = useState(PRODUCTS);
+    const [source, setSource] = useState('static');
+    useEffect(() => {
+        let active = true;
+        fetchProducts()
+            .then((data) => {
+                if (active && Array.isArray(data) && data.length) {
+                    setProducts(data);
+                    setSource('mongo');
+                }
+            })
+            .catch(() => { /* API down — keep static fallback */ });
+        return () => { active = false; };
+    }, []);
+
     const filtered = useMemo(() => {
-        const list = PRODUCTS.filter((p) => {
+        const list = products.filter((p) => {
             const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
             const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesPrice = p.price <= maxPrice;
@@ -48,7 +68,7 @@ export default function Catalog() {
         else if (sort === 'name') sorted.sort((a, b) => a.name.localeCompare(b.name));
         else sorted.sort((a, b) => Number(!!b.featured) - Number(!!a.featured));
         return sorted;
-    }, [activeCategory, searchQuery, maxPrice, sort]);
+    }, [products, activeCategory, searchQuery, maxPrice, sort]);
 
     // === BUG 18: Ghost Modal (SPA DOM Leak) ===
     const [quickViewProduct, setQuickViewProduct] = useState(null);
@@ -78,7 +98,12 @@ export default function Catalog() {
             <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
                 <div>
                     <h1 className="text-3xl font-extrabold text-slate-900">Catalog</h1>
-                    <p className="text-sm text-slate-500">Browse {PRODUCTS.length} products across {CATEGORIES.length} categories.</p>
+                    <p className="text-sm text-slate-500 flex items-center gap-2">
+                        Browse {products.length} products across {CATEGORIES.length} categories.
+                        <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${source === 'mongo' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                            {source === 'mongo' ? '● Live from MongoDB' : '○ Static data'}
+                        </span>
+                    </p>
                 </div>
             </header>
 

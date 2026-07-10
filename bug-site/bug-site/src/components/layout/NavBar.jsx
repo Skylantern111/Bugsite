@@ -3,18 +3,44 @@ import { NavLink } from 'react-router-dom';
 import {
     Bug, Home, LayoutGrid, ShoppingCart, Heart, CreditCard, UserCircle,
     ListOrdered, Activity, Tag, Bell, GitCompareArrows, FlaskConical, Menu, X,
+    Star, ChevronDown, BarChart3, Package,
 } from 'lucide-react';
 import { useCart } from '../../context/cartStore';
 
-const primaryLinks = [
-    { to: '/', label: 'Home', icon: Home, end: true },
-    { to: '/catalog', label: 'Catalog', icon: LayoutGrid },
-    { to: '/deals', label: 'Deals', icon: Tag },
-    { to: '/compare', label: 'Compare', icon: GitCompareArrows },
-    { to: '/orders', label: 'Orders', icon: ListOrdered },
-    { to: '/account', label: 'Account', icon: UserCircle },
-    { to: '/admin/analytics', label: 'Analytics', icon: Activity },
-    { to: '/bugs', label: 'Testing', icon: FlaskConical },
+// Pages are grouped so the desktop nav can reveal them from a hover dropdown
+// and the mobile "burger" menu can list them under section headers.
+const menuGroups = [
+    {
+        label: 'Shop',
+        icon: LayoutGrid,
+        links: [
+            { to: '/catalog', label: 'Catalog', icon: LayoutGrid },
+            { to: '/deals', label: 'Deals', icon: Tag },
+            { to: '/compare', label: 'Compare', icon: GitCompareArrows },
+            { to: '/wishlist', label: 'Wishlist', icon: Heart },
+            { to: '/reviews', label: 'Reviews', icon: Star },
+        ],
+    },
+    {
+        label: 'Account',
+        icon: UserCircle,
+        links: [
+            { to: '/account', label: 'My Account', icon: UserCircle },
+            { to: '/orders', label: 'Orders', icon: ListOrdered },
+            { to: '/cart', label: 'Cart', icon: ShoppingCart },
+            { to: '/notifications', label: 'Notifications', icon: Bell },
+        ],
+    },
+    {
+        label: 'Testing Lab',
+        icon: FlaskConical,
+        links: [
+            { to: '/admin/analytics', label: 'Analytics', icon: Activity },
+            { to: '/admin/products', label: 'Product Manager', icon: Package },
+            { to: '/admin/inventory', label: 'Store Stats', icon: BarChart3 },
+            { to: '/bugs', label: 'Bug Index', icon: FlaskConical },
+        ],
+    },
 ];
 
 const ANNOUNCEMENTS = [
@@ -33,6 +59,11 @@ export default function NavBar() {
     const linkClass = ({ isActive }) =>
         `relative flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${
             isActive ? 'bg-violet-50 text-violet-700' : 'text-slate-600 hover:bg-slate-100'
+        }`;
+
+    const dropdownLinkClass = ({ isActive }) =>
+        `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+            isActive ? 'bg-violet-50 text-violet-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
         }`;
 
     return (
@@ -59,12 +90,35 @@ export default function NavBar() {
                         </div>
                     </NavLink>
 
-                    {/* Desktop primary links */}
+                    {/* Desktop primary links — Home + hover dropdown groups */}
                     <div className="hidden lg:flex gap-1 items-center">
-                        {primaryLinks.map(({ to, label, icon: Icon, end }) => (
-                            <NavLink key={to} to={to} end={end} className={linkClass}>
-                                <Icon className="w-4 h-4" /> {label}
-                            </NavLink>
+                        <NavLink to="/" end className={linkClass}>
+                            <Home className="w-4 h-4" /> Home
+                        </NavLink>
+
+                        {menuGroups.map((group) => (
+                            <div key={group.label} className="relative group">
+                                {/* Hovering (or focusing) this button reveals the dropdown below. */}
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm text-slate-600 hover:bg-slate-100 group-hover:bg-slate-100 transition-colors whitespace-nowrap"
+                                    aria-haspopup="true"
+                                >
+                                    <group.icon className="w-4 h-4" /> {group.label}
+                                    <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 group-hover:rotate-180" />
+                                </button>
+
+                                {/* pt-2 bridges the gap so moving the cursor onto the menu keeps it open. */}
+                                <div className="absolute left-0 top-full pt-2 w-56 z-50 opacity-0 invisible translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0">
+                                    <div className="bg-white rounded-xl border border-slate-200 shadow-xl shadow-slate-900/10 p-1.5">
+                                        {group.links.map((l) => (
+                                            <NavLink key={l.to} to={l.to} className={dropdownLinkClass}>
+                                                <l.icon className="w-4 h-4 text-slate-400" /> {l.label}
+                                            </NavLink>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         ))}
                     </div>
 
@@ -102,14 +156,28 @@ export default function NavBar() {
                     </div>
                 </div>
 
-                {/* Mobile / tablet expandable links */}
+                {/* Mobile / tablet expandable "burger" menu — grouped into sections */}
                 {mobileOpen && (
-                    <div className="lg:hidden border-t border-slate-100 px-4 py-3 grid grid-cols-2 gap-1 bs-slide-in">
-                        {primaryLinks.map(({ to, label, icon: Icon, end }) => (
-                            <NavLink key={to} to={to} end={end} className={linkClass} onClick={() => setMobileOpen(false)}>
-                                <Icon className="w-4 h-4" /> {label}
-                            </NavLink>
+                    <div className="lg:hidden border-t border-slate-100 px-4 py-3 space-y-4 bs-slide-in">
+                        <NavLink to="/" end className={linkClass} onClick={() => setMobileOpen(false)}>
+                            <Home className="w-4 h-4" /> Home
+                        </NavLink>
+
+                        {menuGroups.map((group) => (
+                            <div key={group.label}>
+                                <div className="flex items-center gap-2 px-3 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                    <group.icon className="w-3.5 h-3.5" /> {group.label}
+                                </div>
+                                <div className="grid grid-cols-2 gap-1">
+                                    {group.links.map((l) => (
+                                        <NavLink key={l.to} to={l.to} className={linkClass} onClick={() => setMobileOpen(false)}>
+                                            <l.icon className="w-4 h-4" /> {l.label}
+                                        </NavLink>
+                                    ))}
+                                </div>
+                            </div>
                         ))}
+
                         <NavLink to="/checkout" className={linkClass} onClick={() => setMobileOpen(false)}>
                             <CreditCard className="w-4 h-4" /> Checkout
                         </NavLink>

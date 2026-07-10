@@ -22,6 +22,9 @@ import Deals from './pages/Deals';
 import Compare from './pages/Compare';
 import Notifications from './pages/Notifications';
 import BugIndex from './pages/BugIndex';
+import Reviews from './pages/Reviews';
+import AdminProducts from './pages/AdminProducts';
+import AdminInventory from './pages/AdminInventory';
 
 function AppShell() {
     const location = useLocation();
@@ -56,6 +59,10 @@ function AppShell() {
                     <Route path="/compare" element={<Compare />} />
                     <Route path="/notifications" element={<Notifications />} />
                     <Route path="/bugs" element={<BugIndex />} />
+                    <Route path="/reviews" element={<Reviews />} />
+                    <Route path="/admin/products" element={<AdminProducts />} />
+                    <Route path="/admin/inventory" element={<AdminInventory />} />
+
                 </Routes>
             </main>
 

@@ -25,7 +25,9 @@ const columns = [
         links: [
             { label: 'Bug Index', to: '/bugs' },
             { label: 'Admin Analytics', to: '/admin/analytics' },
-            { label: 'Checkout Wizard', to: '/checkout' },
+            { label: 'Product Manager', to: '/admin/products' },
+            { label: 'Store Stats', to: '/admin/inventory' },
+            { label: 'Reviews', to: '/reviews' },
         ],
     },
 ];
