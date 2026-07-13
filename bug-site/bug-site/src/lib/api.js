@@ -1,7 +1,7 @@
 // Client for the BugSite backend (server/). The Catalog uses fetchProducts()
 // with a static fallback, but the newer admin/community features below have no
 // fallback on purpose — they only work when the Express + MongoDB API is up.
-const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 async function request(path, options) {
   const res = await fetch(`${BASE}/api${path}`, {
