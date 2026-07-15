@@ -59,13 +59,11 @@ export default function NavBar() {
     const cartCount = cart.reduce((sum, i) => sum + (i.qty || 1), 0);
 
     const linkClass = ({ isActive }) =>
-        `relative flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${
-            isActive ? 'bg-violet-50 text-violet-700' : 'text-slate-600 hover:bg-slate-100'
+        `relative flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${isActive ? 'bg-violet-50 text-violet-700' : 'text-slate-600 hover:bg-slate-100'
         }`;
 
     const dropdownLinkClass = ({ isActive }) =>
-        `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
-            isActive ? 'bg-violet-50 text-violet-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
+        `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${isActive ? 'bg-violet-50 text-violet-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
         }`;
 
     return (
