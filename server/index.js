@@ -5,17 +5,30 @@ import cors from 'cors';
 import { getDb, config } from './db.js';
 
 const app = express();
-const allowedOrigins = [
-  process.env.CORS_ORIGIN,
+
+const trustedOrigins = [
   'http://localhost:5173',
-  'http://localhost:4000',
   'https://bugsite-one.vercel.app',
+  process.env.CORS_ORIGIN,
 ].filter(Boolean);
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (origin && trustedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
 app.use(express.json());
 
 // Small async wrapper so every route gets consistent 500 handling.
