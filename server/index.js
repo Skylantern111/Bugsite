@@ -5,7 +5,17 @@ import cors from 'cors';
 import { getDb, config } from './db.js';
 
 const app = express();
-app.use(cors()); // allow the Vite dev server (different origin) to call us
+const allowedOrigins = [
+  process.env.CORS_ORIGIN,
+  'http://localhost:5173',
+  'http://localhost:4000',
+  'https://bugsite-one.vercel.app',
+].filter(Boolean);
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
 app.use(express.json());
 
 // Small async wrapper so every route gets consistent 500 handling.
@@ -240,8 +250,8 @@ app.get('/api/stats', route(async (req, res) => {
 }));
 
 const port = Number(process.env.PORT) || 4000;
-app.listen(port, () => {
-  console.log(`🐛 BugSite API listening on http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🐛 BugSite API listening on http://0.0.0.0:${port}`);
   console.log(`   Firestore: project "${config.projectId}"${config.usingEmulator ? ` (emulator @ ${config.emulatorHost})` : ''}`);
   console.log('   Try: http://localhost:' + port + '/api/products');
 });
