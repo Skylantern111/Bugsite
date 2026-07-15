@@ -39,16 +39,16 @@ export default function ProductDetails() {
     // No request cancellation or validation that activeTab still matches.
     const [tabContent, setTabContent] = useState({});
     const [loadingTab, setLoadingTab] = useState(null);
-    
+
     const handleTabClick = async (tab) => {
         setActiveTab(tab);
         setLoadingTab(tab);
-        
+
         // Simulate API call with variable latency to create race condition
         const delay = Math.random() * 2000 + 300; // 300-2300ms
         const startTime = Date.now();
         const tabBeingLoaded = tab; // Capture current tab
-        
+
         // BUG 35: No abortController or comparison of activeTab
         // If user clicks another tab before this completes, this response
         // will still update the state, overwriting the new tab's content
@@ -60,11 +60,11 @@ export default function ProductDetails() {
                 'Specs': `Specs loaded after ${elapsed}ms`,
                 'Shipping': `Shipping info loaded after ${elapsed}ms`,
             };
-            
+
             // BUG: No check that the tab that finished loading is still active
             setTabContent((prev) => ({ ...prev, [tabBeingLoaded]: tabData[tabBeingLoaded] }));
             setLoadingTab(null);
-            
+
             // Log shows which tab was loaded
             console.warn(`[BUG 35] Loaded content for "${tabBeingLoaded}", but current activeTab is "${tab}" — check if they match!`);
         }, delay);
