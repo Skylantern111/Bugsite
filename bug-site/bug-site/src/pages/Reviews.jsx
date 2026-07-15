@@ -5,7 +5,7 @@ import StarRating from '../components/ui/StarRating';
 import BackendRequired from '../components/ui/BackendRequired';
 
 // Community Reviews — fully DB-backed. Reviews submitted here are POSTed to
-// MongoDB and read back from it; there is no static fallback. Text is rendered
+// Firestore and read back from it; there is no static fallback. Text is rendered
 // as escaped plain text (this page is bug-free by design — the intentional
 // stored-XSS vector, Bug 6, lives only on the Product Details page).
 export default function Reviews() {
@@ -57,7 +57,7 @@ export default function Reviews() {
         <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-8">
             <header>
                 <span className="inline-flex items-center gap-1.5 bg-violet-50 text-violet-700 text-xs font-bold px-3 py-1 rounded-full mb-3">
-                    <MessagesSquare className="w-3.5 h-3.5" /> Community · Live from MongoDB
+                    <MessagesSquare className="w-3.5 h-3.5" /> Community · Live from Firebase
                 </span>
                 <h1 className="text-3xl font-extrabold text-slate-900">Product Reviews</h1>
                 <p className="text-sm text-slate-500">Every review here is stored in and served from the database.</p>

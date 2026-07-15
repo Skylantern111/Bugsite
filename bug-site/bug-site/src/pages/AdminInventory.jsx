@@ -5,7 +5,7 @@ import BackendRequired from '../components/ui/BackendRequired';
 
 const money = (n) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
-// Store Stats — rendered entirely from a live MongoDB aggregation (/api/stats).
+// Store Stats — rendered entirely from live Firestore data (/api/stats).
 // There is no client-side computation and no static fallback: without the
 // database this page has nothing to show. Read-only; touches no bug logic.
 export default function AdminInventory() {
@@ -40,10 +40,10 @@ export default function AdminInventory() {
         <div className="max-w-6xl mx-auto w-full p-4 sm:p-6 space-y-6">
             <header>
                 <span className="inline-flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full mb-3">
-                    <BarChart3 className="w-3.5 h-3.5" /> Admin · Live aggregation from MongoDB
+                    <BarChart3 className="w-3.5 h-3.5" /> Admin · Live aggregation from Firebase
                 </span>
                 <h1 className="text-3xl font-extrabold text-slate-900">Store Stats</h1>
-                <p className="text-sm text-slate-500">Computed server-side with a MongoDB aggregation pipeline.</p>
+                <p className="text-sm text-slate-500">Computed server-side from live Firestore data.</p>
             </header>
 
             {loading ? (

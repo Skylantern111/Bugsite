@@ -2,7 +2,7 @@ import { Database, RefreshCw } from 'lucide-react';
 import { API_BASE } from '../../lib/api';
 
 // Shown when a DB-dependent page can't reach the API. Unlike the Catalog (which
-// falls back to bundled data), these features require Express + MongoDB to be
+// falls back to bundled data), these features require Express + Firebase to be
 // running, so we surface a clear, actionable message instead of a blank page.
 export default function BackendRequired({ error, onRetry }) {
     return (

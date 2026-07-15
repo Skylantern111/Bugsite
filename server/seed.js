@@ -2,24 +2,27 @@ import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { getDb, closeDb, config } from './db.js';
 // Single source of truth: import the exact same product data the frontend ships
-// with. Seeding never invents data — it just loads the 28 products into Mongo.
+// with. Seeding never invents data — it just loads the 28 products into Firestore.
 import { PRODUCTS } from '../bug-site/bug-site/src/data/products.js';
 import { SEED_REVIEWS } from '../bug-site/bug-site/src/data/reviews.js';
 
+async function wipe(collection) {
+  const snap = await collection.get();
+  await Promise.all(snap.docs.map((d) => d.ref.delete()));
+}
+
 async function seed() {
-  console.log(`Connecting to ${config.safeUri} (db: ${config.dbName})...`);
+  console.log(`Connecting to Firestore project "${config.projectId}"${config.usingEmulator ? ` (emulator @ ${config.emulatorHost})` : ''}...`);
   const db = await getDb();
 
-  // --- products ---
+  // --- products (keyed by slug) ---
   const products = db.collection('products');
-  await products.deleteMany({});
-  const result = await products.insertMany(PRODUCTS.map((p) => ({ ...p })));
-  await products.createIndex({ slug: 1 }, { unique: true });
-  await products.createIndex({ category: 1 });
+  await wipe(products);
+  await Promise.all(PRODUCTS.map((p) => products.doc(p.slug).set({ ...p })));
 
   // --- reviews (flattened from SEED_REVIEWS so the community feed starts populated) ---
   const reviews = db.collection('reviews');
-  await reviews.deleteMany({});
+  await wipe(reviews);
   const reviewDocs = Object.entries(SEED_REVIEWS).flatMap(([slug, list]) => {
     const product = PRODUCTS.find((p) => p.slug === slug);
     return list.map((r, i) => ({
@@ -34,19 +37,17 @@ async function seed() {
       createdAt: new Date(Date.now() - (i + 1) * 3600_000).toISOString(),
     }));
   });
-  await reviews.insertMany(reviewDocs);
-  await reviews.createIndex({ productSlug: 1 });
-  await reviews.createIndex({ id: 1 }, { unique: true });
+  await Promise.all(reviewDocs.map((r) => reviews.doc(r.id).set(r)));
 
-  console.log(`✅ Seeded ${result.insertedCount} products into "${config.dbName}.products".`);
-  console.log(`✅ Seeded ${reviewDocs.length} reviews into "${config.dbName}.reviews".`);
-  console.log('   Open MongoDB Compass and browse these collections to see them.');
+  console.log(`✅ Seeded ${PRODUCTS.length} products into "products".`);
+  console.log(`✅ Seeded ${reviewDocs.length} reviews into "reviews".`);
+  console.log('   Open the Firebase console (or emulator UI) to see them.');
   await closeDb();
 }
 
 seed().catch(async (err) => {
   console.error('❌ Seed failed:', err.message);
-  console.error('   Is MongoDB running and MONGODB_URI correct?');
+  console.error('   Is Firestore reachable and FIREBASE_PROJECT_ID / credentials correct?');
   await closeDb();
   process.exit(1);
 });

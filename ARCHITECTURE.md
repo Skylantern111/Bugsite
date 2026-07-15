@@ -2,7 +2,7 @@
 
 BugSite is a **deliberately vulnerable** e-commerce single-page app used for
 security training and AI-agent evaluation. It ships **28 intentional frontend
-bugs** that must keep working exactly as-is. A small Express + MongoDB backend
+bugs** that must keep working exactly as-is. A small Express + Firebase backend
 was added to make the catalog and a few admin/community features data-driven —
 **without touching any bug logic**.
 
@@ -15,16 +15,17 @@ was added to make the catalog and a few admin/community features data-driven —
 ## 1. High-level topology
 
 ```
-┌─────────────────────────────┐        HTTP / JSON        ┌──────────────────────────┐        MongoDB driver        ┌──────────────┐
-│   React SPA (Vite dev :5173) │  ───── fetch ──────────►  │   Express API  (:4000)   │  ───────────────────────►    │   MongoDB     │
-│   bug-site/bug-site          │  ◄──── JSON ───────────   │   server/                │  ◄───────────────────────    │   (Atlas or   │
-│   - 17 routes / pages        │                           │   - products / reviews   │                              │    local)     │
-│   - 28 intentional bugs      │                           │   - stats aggregation    │                              └──────┬───────┘
-│   - CartContext (in-memory)  │                           │   - password masking     │                                     │ views
-└─────────────────────────────┘                           └──────────────────────────┘                              ┌──────▼───────┐
-                                                                                                                     │   Compass    │
-        Catalog falls back to bundled static data if the API is down.                                                │  (GUI only)  │
-        Reviews / Product Manager / Store Stats REQUIRE the API.                                                     └──────────────┘
+┌─────────────────────────────┐        HTTP / JSON        ┌──────────────────────────┐        Admin SDK             ┌──────────────┐
+│   React SPA (Vite dev :5173) │  ───── fetch ──────────►  │   Express API  (:4000)   │  ───────────────────────►    │   Firestore   │
+│   bug-site/bug-site          │  ◄──── JSON ───────────   │   server/                │  ◄───────────────────────    │   (Firebase   │
+│   - 17 routes / pages        │                           │   - products / reviews   │                              │    project or │
+│   - 28 intentional bugs      │                           │   - stats aggregation    │                              │    emulator)  │
+│   - CartContext (in-memory)  │                           │   - project id (no PII)  │                              └──────┬───────┘
+└─────────────────────────────┘                           └──────────────────────────┘                                     │ views
+                                                                                                                     ┌──────▼───────┐
+        Catalog falls back to bundled static data if the API is down.                                                │  Firebase    │
+        Reviews / Product Manager / Store Stats REQUIRE the API.                                                     │  console     │
+                                                                                                                     └──────────────┘
 ```
 
 Two independent processes, started in two terminals:
@@ -43,9 +44,9 @@ Setup and configuration details live in [`server/DATABASE.md`](server/DATABASE.m
 ```
 Bugsite/
 ├── ARCHITECTURE.md                 ← this file (whole-system design)
-├── server/                         ← Express + MongoDB backend
+├── server/                         ← Express + Firebase (Firestore) backend
 │   ├── index.js                    ← API routes (products, reviews, stats)
-│   ├── db.js                       ← shared MongoClient, DNS fix, URI masking
+│   ├── db.js                       ← shared Firestore instance, emulator/prod switch
 │   ├── seed.js                     ← loads products + reviews from frontend data
 │   ├── package.json                ← scripts: start / dev / seed
 │   ├── .env                        ← config (git-ignored, never commit)
@@ -69,26 +70,27 @@ Bugsite/
 
 ## 3. Backend (`server/`)
 
-A thin, stateless Express app over the MongoDB Node driver. It exposes only
-reference/store-management data — **no shopper PII, no carts, no orders.**
+A thin, stateless Express app over the Firebase Admin SDK (Firestore). It exposes
+only reference/store-management data — **no shopper PII, no carts, no orders.**
 
-- **`db.js`** — lazy, shared `MongoClient` (`getDb()` connects once). Applies a
-  `dns.setServers()` override when `DNS_SERVER` is set (fixes Atlas
-  `querySrv ECONNREFUSED`), and exposes `redactUri()` so the password is masked
-  as `****` in every log and health response.
+- **`db.js`** — lazy, shared Firestore instance (`getDb()` initializes once).
+  Talks to the local **Firestore emulator** when `FIRESTORE_EMULATOR_HOST` is
+  set, otherwise a real Firebase project via `GOOGLE_APPLICATION_CREDENTIALS`.
+  Exports `config` (`projectId`, `usingEmulator`) for logging/health checks —
+  there's no password to mask.
 - **`index.js`** — the routes below. A `route()` wrapper gives every handler
-  consistent `500` handling. Mongo's internal `_id` is always projected out
-  (`{ _id: 0 }`) so the frontend keys off the app's own `id`.
+  consistent `500` handling. `products` are keyed by `slug` and `reviews` by
+  `id`, which double as Firestore document ids, so the frontend keys off the
+  same `id`/`slug` fields either way.
 - **`seed.js`** — **idempotent** (wipe + reinsert). Imports the frontend's own
   `products.js` and `reviews.js` so the DB is always a mirror of what the app
-  ships with. Creates indexes (`products.slug` unique, `products.category`,
-  `reviews.productSlug`, `reviews.id` unique).
+  ships with.
 
 ### API endpoints
 
 | Method | Path                     | Purpose                                            | DB write |
 |--------|--------------------------|----------------------------------------------------|:--------:|
-| GET    | `/api/health`            | liveness + masked URI (no DB needed)               |    –     |
+| GET    | `/api/health`            | liveness + project id (no DB needed)               |    –     |
 | GET    | `/api/products`          | all products                                       |    –     |
 | GET    | `/api/products/:slug`    | one product (404 if missing)                       |    –     |
 | GET    | `/api/categories`        | distinct category names                            |    –     |
@@ -102,10 +104,10 @@ reference/store-management data — **no shopper PII, no carts, no orders.**
 
 ### Collections
 
-| Collection | Docs | Key fields | Indexes |
-|------------|------|------------|---------|
-| `products` | 28   | `id, slug, name, category, brand, price(Number), stock(Number), rating, reviewCount, …` | `slug` unique, `category` |
-| `reviews`  | 16   | `id(uuid), productSlug, productName, author, title, text, rating, createdAt` | `productSlug`, `id` unique |
+| Collection | Docs | Key fields | Document id |
+|------------|------|------------|-------------|
+| `products` | 28   | `id, slug, name, category, brand, price(Number), stock(Number), rating, reviewCount, …` | `slug` |
+| `reviews`  | 16   | `id(uuid), productSlug, productName, author, title, text, rating, createdAt` | `id` |
 
 `price` / `stock` / `rating` are stored as real **Numbers** deliberately — this
 matches the frontend's Bug 8 type-coercion model. Do not convert them to strings.
@@ -124,7 +126,7 @@ navigation — that remount is what powers Bugs 3 & 13).
 | Route                | Page              | Data source            | Notes                                  |
 |----------------------|-------------------|------------------------|----------------------------------------|
 | `/`                  | Home              | static                 | Bug 9 (layout shift)                   |
-| `/catalog`           | Catalog           | **API** + static fallback | Bugs 4, 18, 23; "Live from MongoDB" badge |
+| `/catalog`           | Catalog           | **API** + static fallback | Bugs 4, 18, 23; "Live from Firebase" badge |
 | `/product/:slug`     | ProductDetails    | static                 | Bugs 5, 6, 14, 16                      |
 | `/cart`              | Cart              | CartContext (memory)   | Bugs 2, 8                              |
 | `/wishlist`          | Wishlist          | localStorage           | Bug 21                                 |
@@ -162,7 +164,7 @@ DB-only pages can render the shared `BackendRequired` empty-state on failure.
 ## 5. Data flow examples
 
 **Catalog (graceful):** `Catalog` mounts → `fetchProducts()` → on success swaps
-static `PRODUCTS` for DB data and flips the badge to "● Live from MongoDB"; on
+static `PRODUCTS` for DB data and flips the badge to "● Live from Firebase"; on
 failure keeps static data ("○ Static data"). Either way, Bugs 4/18/23 still fire.
 
 **Post a review (DB-required):** Reviews form → `createReview()` → `POST /api/reviews`
@@ -170,7 +172,8 @@ failure keeps static data ("○ Static data"). Either way, Bugs 4/18/23 still fi
 product's `rating`/`reviewCount` from real DB data → new review prepended to the feed.
 
 **Store Stats (DB-required):** `AdminInventory` → `fetchStats()` → `GET /api/stats`
-runs a MongoDB aggregation (`$group`, `$multiply`, `$avg`) → KPIs and charts render
+fetches `products`/`reviews` from Firestore and aggregates totals/by-category/low-stock
+in server code (Firestore has no group-by pipeline) → KPIs and charts render
 entirely from server-computed values (no client-side math).
 
 ---
@@ -221,9 +224,9 @@ routes/nav links.
 | Layer     | Tech |
 |-----------|------|
 | Frontend  | React 19, Vite 8, Tailwind CSS v4 (`@tailwindcss/vite`), react-router-dom v7, lucide-react |
-| Backend   | Node.js 18+ (ESM), Express 4, MongoDB Node driver v6, cors, dotenv |
-| Database  | MongoDB (Atlas `mongodb+srv://` or local Community Server) |
-| Tooling   | MongoDB Compass (view/edit data) |
+| Backend   | Node.js 18+ (ESM), Express 4, firebase-admin v14, cors, dotenv |
+| Database  | Firebase Firestore (real project or local Firestore emulator) |
+| Tooling   | Firebase console / Emulator UI (view/edit data) |
 
 ---
 
@@ -233,7 +236,7 @@ routes/nav links.
   ReDoS, hidden tokens, and cross-session leaks. That is the point; do not fix them.
 - **Backend is narrow** — reference/store-management data only. No auth, no
   shopper PII, no orders. Safe to run locally against a throwaway database.
-- **Credential hygiene** — `.env` is git-ignored; the DB password is masked
-  (`****`) in all logs and `/api/health`; never paste a real connection string
-  into chat, tickets, or screenshots.
+- **Credential hygiene** — `.env` and any `service-account*.json` key are
+  git-ignored; the Admin SDK key is never logged or returned by `/api/health`;
+  never paste a real service account key into chat, tickets, or screenshots.
 ```

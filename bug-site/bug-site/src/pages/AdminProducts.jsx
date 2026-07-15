@@ -7,7 +7,7 @@ const CATEGORY_OPTIONS = ['Audio', 'Peripherals', 'Desk Setup', 'Components', 'W
 const BLANK = { name: '', category: 'Components', brand: '', price: '', stock: '', emoji: '📦', description: '' };
 
 // Admin Product Manager — DB-backed CRUD. Every change here is written to
-// MongoDB and shows up on the Catalog after a refresh. No static fallback:
+// Firestore and shows up on the Catalog after a refresh. No static fallback:
 // without the backend this page cannot function. Manages store data only
 // (never shopper PII), and touches no bug logic.
 export default function AdminProducts() {
@@ -100,7 +100,7 @@ export default function AdminProducts() {
             <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                     <span className="inline-flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full mb-3">
-                        <Boxes className="w-3.5 h-3.5" /> Admin · Live from MongoDB
+                        <Boxes className="w-3.5 h-3.5" /> Admin · Live from Firebase
                     </span>
                     <h1 className="text-3xl font-extrabold text-slate-900">Product Manager</h1>
                     <p className="text-sm text-slate-500">Create, edit, and delete products directly in the database.</p>
@@ -234,7 +234,7 @@ export default function AdminProducts() {
                         </div>
                     </div>
                     <p className="text-xs text-slate-400 text-center">
-                        {products.length} products in <code className="bg-slate-100 px-1.5 py-0.5 rounded">bugsite.products</code> · changes persist to MongoDB.
+                        {products.length} products in <code className="bg-slate-100 px-1.5 py-0.5 rounded">products</code> · changes persist to Firestore.
                     </p>
                 </>
             )}

@@ -8,9 +8,6 @@ const app = express();
 app.use(cors()); // allow the Vite dev server (different origin) to call us
 app.use(express.json());
 
-// Never leak Mongo's internal _id to the frontend — the app keys off `id` ("p1").
-const NO_ID = { projection: { _id: 0 } };
-
 // Small async wrapper so every route gets consistent 500 handling.
 const route = (handler) => async (req, res) => {
   try {
@@ -25,7 +22,7 @@ const route = (handler) => async (req, res) => {
 // Health
 // ---------------------------------------------------------------------------
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, db: config.dbName, uri: config.safeUri });
+  res.json({ ok: true, projectId: config.projectId, usingEmulator: config.usingEmulator });
 });
 
 // ---------------------------------------------------------------------------
@@ -33,26 +30,28 @@ app.get('/api/health', (req, res) => {
 // ---------------------------------------------------------------------------
 app.get('/api/products', route(async (req, res) => {
   const db = await getDb();
-  const products = await db.collection('products').find({}, NO_ID).toArray();
-  res.json(products);
+  const snap = await db.collection('products').get();
+  res.json(snap.docs.map((d) => d.data()));
 }));
 
 app.get('/api/products/:slug', route(async (req, res) => {
   const db = await getDb();
-  const product = await db.collection('products').findOne({ slug: req.params.slug }, NO_ID);
-  if (!product) return res.status(404).json({ error: 'Not found' });
-  res.json(product);
+  const doc = await db.collection('products').doc(req.params.slug).get();
+  if (!doc.exists) return res.status(404).json({ error: 'Not found' });
+  res.json(doc.data());
 }));
 
 app.get('/api/categories', route(async (req, res) => {
   const db = await getDb();
-  const categories = await db.collection('products').distinct('category');
-  res.json(categories.sort());
+  const snap = await db.collection('products').get();
+  const categories = new Set(snap.docs.map((d) => d.data().category));
+  res.json([...categories].sort());
 }));
 
 // ---------------------------------------------------------------------------
 // Products (write) — powers the Admin Product Manager. DB-backed CRUD.
 // This is store-management data, not shopper PII — safe for a training target.
+// Products are keyed by `slug`, which doubles as the Firestore document id.
 // ---------------------------------------------------------------------------
 function slugify(s) {
   return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -65,7 +64,8 @@ app.post('/api/products', route(async (req, res) => {
   }
   const db = await getDb();
   const slug = b.slug ? slugify(b.slug) : slugify(b.name);
-  if (await db.collection('products').findOne({ slug })) {
+  const ref = db.collection('products').doc(slug);
+  if ((await ref.get()).exists) {
     return res.status(409).json({ error: `A product with slug "${slug}" already exists` });
   }
   const doc = {
@@ -77,13 +77,15 @@ app.post('/api/products', route(async (req, res) => {
     price: Number(b.price),
     stock: Number(b.stock ?? 0),
     emoji: b.emoji || '📦',
-    rating: b.rating != null ? Number(b.rating) : undefined,
     reviewCount: b.reviewCount != null ? Number(b.reviewCount) : 0,
     description: b.description || '',
     specs: b.specs || {},
     tags: Array.isArray(b.tags) ? b.tags : [],
   };
-  await db.collection('products').insertOne({ ...doc });
+  // Firestore rejects `undefined` field values (unlike Mongo, which silently
+  // drops them), so an absent rating is an omitted key, not an undefined one.
+  if (b.rating != null) doc.rating = Number(b.rating);
+  await ref.set(doc);
   res.status(201).json(doc);
 }));
 
@@ -103,33 +105,35 @@ app.patch('/api/products/:slug', route(async (req, res) => {
     return res.status(400).json({ error: 'No updatable fields provided' });
   }
   const db = await getDb();
-  const result = await db.collection('products').findOneAndUpdate(
-    { slug: req.params.slug },
-    { $set: update },
-    { returnDocument: 'after', projection: { _id: 0 } },
-  );
-  if (!result) return res.status(404).json({ error: 'Not found' });
-  res.json(result);
+  const ref = db.collection('products').doc(req.params.slug);
+  const existing = await ref.get();
+  if (!existing.exists) return res.status(404).json({ error: 'Not found' });
+  await ref.update(update);
+  res.json({ ...existing.data(), ...update });
 }));
 
 app.delete('/api/products/:slug', route(async (req, res) => {
   const db = await getDb();
-  const { deletedCount } = await db.collection('products').deleteOne({ slug: req.params.slug });
-  if (!deletedCount) return res.status(404).json({ error: 'Not found' });
+  const ref = db.collection('products').doc(req.params.slug);
+  if (!(await ref.get()).exists) return res.status(404).json({ error: 'Not found' });
+  await ref.delete();
   res.json({ ok: true, slug: req.params.slug });
 }));
 
 // ---------------------------------------------------------------------------
-// Reviews — persisted community reviews. GET/POST/DELETE against Mongo.
+// Reviews — persisted community reviews. GET/POST/DELETE against Firestore.
+// Reviews are keyed by `id` (a uuid), which doubles as the document id.
 // ---------------------------------------------------------------------------
 app.get('/api/reviews', route(async (req, res) => {
   const db = await getDb();
-  const filter = req.query.slug ? { productSlug: req.query.slug } : {};
-  const reviews = await db
-    .collection('reviews')
-    .find(filter, NO_ID)
-    .sort({ createdAt: -1 })
-    .toArray();
+  const col = db.collection('reviews');
+  const snap = req.query.slug
+    ? await col.where('productSlug', '==', req.query.slug).get()
+    : await col.get();
+  // Sorted in JS rather than an orderBy() query: with only a couple dozen
+  // reviews, this avoids requiring a Firestore composite index for the
+  // (productSlug ==, createdAt desc) combination.
+  const reviews = snap.docs.map((d) => d.data()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   res.json(reviews);
 }));
 
@@ -140,8 +144,9 @@ app.post('/api/reviews', route(async (req, res) => {
   }
   const db = await getDb();
   // Confirm the product exists so reviews always attach to a real slug.
-  const product = await db.collection('products').findOne({ slug: b.productSlug });
-  if (!product) return res.status(404).json({ error: `Unknown product "${b.productSlug}"` });
+  const productDoc = await db.collection('products').doc(b.productSlug).get();
+  if (!productDoc.exists) return res.status(404).json({ error: `Unknown product "${b.productSlug}"` });
+  const product = productDoc.data();
 
   const rating = Math.max(1, Math.min(5, Number(b.rating) || 5));
   const doc = {
@@ -154,78 +159,89 @@ app.post('/api/reviews', route(async (req, res) => {
     rating,
     createdAt: new Date().toISOString(),
   };
-  await db.collection('reviews').insertOne({ ...doc });
+  await db.collection('reviews').doc(doc.id).set(doc);
 
   // Keep the product's aggregate rating/count in sync from real DB data.
-  const stats = await db.collection('reviews').aggregate([
-    { $match: { productSlug: b.productSlug } },
-    { $group: { _id: null, avg: { $avg: '$rating' }, n: { $sum: 1 } } },
-  ]).toArray();
-  if (stats[0]) {
-    await db.collection('products').updateOne(
-      { slug: b.productSlug },
-      { $set: { rating: Math.round(stats[0].avg * 10) / 10, reviewCount: stats[0].n } },
-    );
-  }
+  const forProduct = await db.collection('reviews').where('productSlug', '==', b.productSlug).get();
+  const ratings = forProduct.docs.map((d) => d.data().rating);
+  const avg = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+  await db.collection('products').doc(b.productSlug).update({
+    rating: Math.round(avg * 10) / 10,
+    reviewCount: ratings.length,
+  });
   res.status(201).json(doc);
 }));
 
 app.delete('/api/reviews/:id', route(async (req, res) => {
   const db = await getDb();
-  const { deletedCount } = await db.collection('reviews').deleteOne({ id: req.params.id });
-  if (!deletedCount) return res.status(404).json({ error: 'Not found' });
+  const ref = db.collection('reviews').doc(req.params.id);
+  if (!(await ref.get()).exists) return res.status(404).json({ error: 'Not found' });
+  await ref.delete();
   res.json({ ok: true, id: req.params.id });
 }));
 
 // ---------------------------------------------------------------------------
-// Stats — live aggregation over the products collection. Powers the Store
-// Stats dashboard, which cannot render without a database.
+// Stats — aggregation over the products collection. Powers the Store Stats
+// dashboard, which cannot render without a database. Firestore has no
+// server-side group-by, so with only ~28 products this aggregates in JS
+// instead of running a pipeline — plenty fast at this scale.
 // ---------------------------------------------------------------------------
 app.get('/api/stats', route(async (req, res) => {
   const db = await getDb();
-  const col = db.collection('products');
+  const [productsSnap, reviewsSnap] = await Promise.all([
+    db.collection('products').get(),
+    db.collection('reviews').get(),
+  ]);
+  const products = productsSnap.docs.map((d) => d.data());
 
-  const [totals] = await col.aggregate([
-    {
-      $group: {
-        _id: null,
-        totalProducts: { $sum: 1 },
-        totalStock: { $sum: '$stock' },
-        inventoryValue: { $sum: { $multiply: ['$price', '$stock'] } },
-        avgPrice: { $avg: '$price' },
-        avgRating: { $avg: '$rating' },
-      },
+  const totals = products.reduce(
+    (acc, p) => {
+      acc.totalProducts += 1;
+      acc.totalStock += p.stock;
+      acc.inventoryValue += p.price * p.stock;
+      acc.priceSum += p.price;
+      if (p.rating != null) {
+        acc.ratingSum += p.rating;
+        acc.ratingCount += 1;
+      }
+      return acc;
     },
-    { $project: { _id: 0 } },
-  ]).toArray();
+    { totalProducts: 0, totalStock: 0, inventoryValue: 0, priceSum: 0, ratingSum: 0, ratingCount: 0 },
+  );
 
-  const byCategory = await col.aggregate([
-    {
-      $group: {
-        _id: '$category',
-        count: { $sum: 1 },
-        stock: { $sum: '$stock' },
-        value: { $sum: { $multiply: ['$price', '$stock'] } },
-      },
+  const byCategoryMap = new Map();
+  for (const p of products) {
+    const entry = byCategoryMap.get(p.category) || { category: p.category, count: 0, stock: 0, value: 0 };
+    entry.count += 1;
+    entry.stock += p.stock;
+    entry.value += p.price * p.stock;
+    byCategoryMap.set(p.category, entry);
+  }
+  const byCategory = [...byCategoryMap.values()].sort((a, b) => b.value - a.value);
+
+  const lowStock = products
+    .filter((p) => p.stock < 20)
+    .sort((a, b) => a.stock - b.stock)
+    .slice(0, 8)
+    .map((p) => ({ name: p.name, slug: p.slug, stock: p.stock, emoji: p.emoji, category: p.category }));
+
+  res.json({
+    totals: {
+      totalProducts: totals.totalProducts,
+      totalStock: totals.totalStock,
+      inventoryValue: totals.inventoryValue,
+      avgPrice: totals.totalProducts ? totals.priceSum / totals.totalProducts : 0,
+      avgRating: totals.ratingCount ? totals.ratingSum / totals.ratingCount : 0,
     },
-    { $project: { _id: 0, category: '$_id', count: 1, stock: 1, value: 1 } },
-    { $sort: { value: -1 } },
-  ]).toArray();
-
-  const lowStock = await col
-    .find({ stock: { $lt: 20 } }, { projection: { _id: 0, name: 1, slug: 1, stock: 1, emoji: 1, category: 1 } })
-    .sort({ stock: 1 })
-    .limit(8)
-    .toArray();
-
-  const reviewCount = await db.collection('reviews').countDocuments();
-
-  res.json({ totals: totals || {}, byCategory, lowStock, reviewCount });
+    byCategory,
+    lowStock,
+    reviewCount: reviewsSnap.size,
+  });
 }));
 
 const port = Number(process.env.PORT) || 4000;
 app.listen(port, () => {
   console.log(`🐛 BugSite API listening on http://localhost:${port}`);
-  console.log(`   MongoDB: ${config.safeUri} → db "${config.dbName}"`);
+  console.log(`   Firestore: project "${config.projectId}"${config.usingEmulator ? ` (emulator @ ${config.emulatorHost})` : ''}`);
   console.log('   Try: http://localhost:' + port + '/api/products');
 });

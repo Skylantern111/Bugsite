@@ -1,38 +1,45 @@
-import dns from 'node:dns';
-import { MongoClient } from 'mongodb';
+import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
-// Node's own DNS resolver (c-ares) can fail with querySrv ECONNREFUSED on some
-// Windows/VPN networks even when the OS resolves fine. Setting DNS_SERVER (e.g.
-// 8.8.8.8) forces Node to use a resolver that answers the mongodb+srv lookup.
-if (process.env.DNS_SERVER) {
-  dns.setServers(process.env.DNS_SERVER.split(',').map((s) => s.trim()));
+const projectId = process.env.FIREBASE_PROJECT_ID || 'demo-bugsite';
+const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
+// A key *file path* (works locally and on GCP hosts) or the raw JSON key
+// *contents* (works on hosts like Railway with no filesystem to upload to —
+// paste the whole service-account.json into one env var).
+const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+function loadCredential() {
+  if (serviceAccountJson) return cert(JSON.parse(serviceAccountJson));
+  if (serviceAccountPath) return cert(serviceAccountPath);
+  return undefined;
 }
 
-const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017';
-const dbName = process.env.DB_NAME || 'bugsite';
-
-// Single shared client, connected lazily on first use so the server can boot
-// even when MongoDB isn't running yet (requests will then fail cleanly).
-let client;
+// Single shared Firestore instance, created lazily on first use so the server
+// can boot even before credentials/emulator are ready (requests will then
+// fail cleanly). A `demo-` project id lets the Firestore emulator run with no
+// real credentials at all, mirroring how local MongoDB needed no auth either.
+let db;
 
 export async function getDb() {
-  if (!client) {
-    client = new MongoClient(uri);
-    await client.connect();
+  if (!db) {
+    if (!getApps().length) {
+      const credential = emulatorHost ? undefined : loadCredential();
+      initializeApp(credential ? { credential, projectId } : { projectId });
+    }
+    db = getFirestore();
   }
-  return client.db(dbName);
+  return db;
 }
 
 export async function closeDb() {
-  if (client) {
-    await client.close();
-    client = undefined;
-  }
+  // firebase-admin has no persistent socket to tear down explicitly; this is
+  // kept so callers (seed.js) don't need to know that.
+  db = undefined;
 }
 
-// Hide credentials before printing/returning the URI anywhere (logs, /health).
-export function redactUri(u) {
-  return u.replace(/\/\/([^:@/]+):([^@/]+)@/, '//$1:****@');
-}
-
-export const config = { uri, dbName, safeUri: redactUri(uri) };
+export const config = {
+  projectId,
+  usingEmulator: Boolean(emulatorHost),
+  emulatorHost: emulatorHost || null,
+};

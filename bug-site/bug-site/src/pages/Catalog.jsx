@@ -35,7 +35,7 @@ export default function Catalog() {
     const [sort, setSort] = useState('featured');
     const [maxPrice, setMaxPrice] = useState(250);
 
-    // Products now come from the backend (Express + MongoDB) when it's up.
+    // Products now come from the backend (Express + Firebase) when it's up.
     // Seeded with the exact same data, so the shape is identical. Falls back to
     // the bundled static PRODUCTS if the API is unreachable — this fetch is a
     // data source swap only and does not alter any bug behavior below.
@@ -47,7 +47,7 @@ export default function Catalog() {
             .then((data) => {
                 if (active && Array.isArray(data) && data.length) {
                     setProducts(data);
-                    setSource('mongo');
+                    setSource('firebase');
                 }
             })
             .catch(() => { /* API down — keep static fallback */ });
@@ -100,8 +100,8 @@ export default function Catalog() {
                     <h1 className="text-3xl font-extrabold text-slate-900">Catalog</h1>
                     <p className="text-sm text-slate-500 flex items-center gap-2">
                         Browse {products.length} products across {CATEGORIES.length} categories.
-                        <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${source === 'mongo' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                            {source === 'mongo' ? '● Live from MongoDB' : '○ Static data'}
+                        <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${source === 'firebase' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                            {source === 'firebase' ? '● Live from Firebase' : '○ Static data'}
                         </span>
                     </p>
                 </div>

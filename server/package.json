@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Minimal Express + MongoDB API for BugSite. Serves read-only product reference data so the catalog can be browsed in MongoDB Compass. Does NOT touch any of the 28 intentional frontend bugs.",
+  "description": "Minimal Express + Firebase (Firestore) API for BugSite. Serves read-only product reference data so the catalog can be browsed in the Firebase console. Does NOT touch any of the 28 intentional frontend bugs.",
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
@@ -13,6 +13,6 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "mongodb": "^6.12.0"
+    "firebase-admin": "^14.1.0"
   }
 }

@@ -1,6 +1,6 @@
 // Client for the BugSite backend (server/). The Catalog uses fetchProducts()
 // with a static fallback, but the newer admin/community features below have no
-// fallback on purpose — they only work when the Express + MongoDB API is up.
+// fallback on purpose — they only work when the Express + Firebase API is up.
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 async function request(path, options) {

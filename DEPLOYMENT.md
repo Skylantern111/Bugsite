@@ -1,6 +1,6 @@
 # BugSite Deployment Guide
 
-Deploy BugSite publicly using **Vercel** (frontend) + **Railway** (backend) + **MongoDB Atlas** (database) + custom domain.
+Deploy BugSite publicly using **Vercel** (frontend) + **Railway** (backend) + **Firebase Firestore** (database) + custom domain.
 
 ---
 
@@ -11,9 +11,9 @@ Before starting, ensure you have:
 - [ ] **GitHub account** — your repo must be pushed to GitHub (public or private)
 - [ ] **Vercel account** — sign up at [vercel.com](https://vercel.com) (free tier sufficient)
 - [ ] **Railway account** — sign up at [railway.app](https://railway.app) (free tier sufficient)
-- [ ] **MongoDB Atlas cluster** — already set up (verify at [atlas.mongodb.com](https://atlas.mongodb.com))
+- [ ] **Firebase project** — already set up with Firestore enabled (verify at [console.firebase.google.com](https://console.firebase.google.com))
 - [ ] **Domain name** — owned or registered (can use Vercel, Namecheap, GoDaddy, etc.)
-- [ ] **MongoDB Atlas network access** — your cluster's IP whitelist includes `0.0.0.0/0` (or specific Railway IP after deploy)
+- [ ] **Firebase service account key** — generated from **Project settings → Service accounts** (needed by Railway, since it isn't a Google Cloud host)
 
 ### Git: push to GitHub
 
@@ -84,26 +84,27 @@ https://bugsite.vercel.app
 4. Authorize Railway with GitHub
 5. Select your `bugsite` repo
 
-### Step 2: Add MongoDB connection
+### Step 2: Get a Firebase service account key
 
-Railway should auto-detect that this is a Node.js project. Now add the database connection:
+Railway isn't a Google Cloud host, so it can't use Application Default
+Credentials — give it an explicit service account key instead:
 
-1. In Railway, click **"Add"** (or the `+` button)
-2. Select **"MongoDB Atlas"** or **"Add MongoDB"**
-   - If you already have an Atlas cluster: click **Add Existing Database**
-   - Paste your `MONGODB_URI` from `.env`
+1. In the [Firebase console](https://console.firebase.google.com) → your project → **Project settings** → **Service accounts**
+2. Click **Generate new private key** → downloads a `.json` file
+3. Open the file and copy its **entire contents** (you'll paste it as one env var below)
 
 ### Step 3: Configure environment variables
 
 In Railway, go to **Settings** → **Variables** and add:
 
-| Key             | Value                                        |
-|-----------------|----------------------------------------------|
-| `MONGODB_URI`   | `mongodb+srv://<user>:<pass>@<cluster>...`  |
-| `DB_NAME`       | `bugsite`                                    |
-| `PORT`          | `4000`                                       |
-| `DNS_SERVER`    | `8.8.8.8` (only if you hit SRV DNS errors)   |
-| `NODE_ENV`      | `production`                                 |
+| Key                        | Value                                              |
+|----------------------------|-----------------------------------------------------|
+| `FIREBASE_PROJECT_ID`      | your Firebase project id                            |
+| `FIREBASE_SERVICE_ACCOUNT` | paste the full JSON key file contents as one value  |
+| `PORT`                     | `4000`                                              |
+| `NODE_ENV`                 | `production`                                        |
+
+> Do **not** set `FIRESTORE_EMULATOR_HOST` in production — that's local-dev only.
 
 ### Step 4: Set the start command
 
@@ -141,7 +142,7 @@ https://bugsite-api.railway.app
 Test the connection:
 
 - Open your Vercel URL: `https://bugsite.vercel.app/catalog`
-- You should see a **green "● Live from MongoDB"** badge (not "○ Static data")
+- You should see a **green "● Live from Firebase"** badge (not "○ Static data")
 - Click a product and check if reviews load
 
 ---
@@ -202,7 +203,7 @@ npm run seed
 # This wipes and reloads the database from seed.js
 ```
 
-Run this **once** to populate MongoDB Atlas with 28 products and 16 reviews.
+Run this **once** to populate Firestore with 28 products and 16 reviews.
 
 ### Option B: Use Railway's dashboard console
 
@@ -223,7 +224,7 @@ After seeding, refresh your frontend — the catalog and reviews should load fro
 | Page                | What to check                                      | Expected |
 |---------------------|----------------------------------------------------|----------|
 | `/`                 | Layout loads, flash-sale CTA visible              | ✅ works |
-| `/catalog`          | Badge shows **"● Live from MongoDB"**; 28 products | ✅ works |
+| `/catalog`          | Badge shows **"● Live from Firebase"**; 28 products | ✅ works |
 | `/product/:slug`    | Product details, reviews load                      | ✅ works |
 | `/reviews`          | Reviews feed populated                             | ✅ works |
 | `/admin/products`   | Create/edit/delete products                        | ✅ works |
@@ -237,7 +238,7 @@ Test these API endpoints (replace domain with yours):
 ```bash
 # Health check
 curl https://api.bugsite.com/api/health
-# Response: { "ok": true, "db": true, "uri": "mongodb+srv://...****" }
+# Response: { "ok": true, "projectId": "your-project-id", "usingEmulator": false }
 
 # All products
 curl https://api.bugsite.com/api/products
@@ -275,23 +276,24 @@ In Railway dashboard → select your service → **Logs**:
 
 - Shows Express server startup messages
 - API request logs
-- MongoDB connection errors
+- Firestore connection/auth errors
 
 ### Common issues
 
 | Issue | Cause | Fix |
 |-------|-------|-----|
 | Frontend shows "○ Static data" | Backend unreachable | Check `VITE_API_BASE` in Vercel; verify Railway is running |
-| "Database connection required" on `/reviews` | MongoDB not seeded | Run `npm run seed` in Railway terminal |
+| "Database connection required" on `/reviews` | Firestore not seeded | Run `npm run seed` in Railway terminal |
 | CORS errors in browser console | Frontend/backend domains not matched | Verify `CORS` is configured in `server/index.js` |
-| Catalog shows `500` errors | Seeds failed or data missing | Check Railway logs for MongoDB connection errors |
+| Catalog shows `500` errors | Seeds failed or data missing | Check Railway logs for Firestore auth/connection errors |
+| `Could not load the default credentials` in Railway logs | `FIREBASE_SERVICE_ACCOUNT` missing or malformed | Re-paste the full service-account JSON as one line into the Railway variable |
 | Custom domain shows Vercel's default page | DNS not propagated | Wait 24 hrs; check nameserver records |
 
 ### Enable production logging
 
 To see detailed logs in production:
 
-1. In Railway, set `DEBUG=*` environment variable (or `DEBUG=express,mongodb`)
+1. In Railway, set `DEBUG=*` environment variable (or `DEBUG=express`)
 2. Redeploy
 3. Check logs for troubleshooting
 
@@ -309,7 +311,8 @@ https://bugsite.com
 
 ### Database backups
 
-MongoDB Atlas automatically backs up your cluster. In Atlas dashboard → **Backup** → configure retention if needed.
+Firestore supports scheduled backups via **Cloud console → Firestore → Backups**
+(or `gcloud firestore backups schedules create`) if you want point-in-time recovery.
 
 ### Monitoring uptime
 
@@ -320,7 +323,7 @@ MongoDB Atlas automatically backs up your cluster. In Atlas dashboard → **Back
 ### Security notes
 
 - ⚠️ **This is a deliberately vulnerable training site** — never enter real data
-- Keep your MongoDB password in `.env` (not in git)
+- Keep your Firebase service account key out of git (`.env` and `service-account*.json` are git-ignored)
 - The backend intentionally stores no PII, so it's safe to run with demo data
 - Review the **8. Security posture** section in [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 
