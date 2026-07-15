@@ -33,6 +33,43 @@ export default function ProductDetails() {
     // or sharing this link always lands back on Overview.
     const [activeTab, setActiveTab] = useState('Overview');
 
+    // === BUG 35: Race Condition on Rapid Tab Switching ===
+    // When user rapidly clicks tabs, older API responses can overwrite
+    // the current tab's content with stale data.
+    // No request cancellation or validation that activeTab still matches.
+    const [tabContent, setTabContent] = useState({});
+    const [loadingTab, setLoadingTab] = useState(null);
+    
+    const handleTabClick = async (tab) => {
+        setActiveTab(tab);
+        setLoadingTab(tab);
+        
+        // Simulate API call with variable latency to create race condition
+        const delay = Math.random() * 2000 + 300; // 300-2300ms
+        const startTime = Date.now();
+        const tabBeingLoaded = tab; // Capture current tab
+        
+        // BUG 35: No abortController or comparison of activeTab
+        // If user clicks another tab before this completes, this response
+        // will still update the state, overwriting the new tab's content
+        setTimeout(() => {
+            const elapsed = Date.now() - startTime;
+            const tabData = {
+                'Overview': `Loaded after ${elapsed}ms`,
+                'Reviews': `Reviews loaded after ${elapsed}ms (${reviews.length} reviews)`,
+                'Specs': `Specs loaded after ${elapsed}ms`,
+                'Shipping': `Shipping info loaded after ${elapsed}ms`,
+            };
+            
+            // BUG: No check that the tab that finished loading is still active
+            setTabContent((prev) => ({ ...prev, [tabBeingLoaded]: tabData[tabBeingLoaded] }));
+            setLoadingTab(null);
+            
+            // Log shows which tab was loaded
+            console.warn(`[BUG 35] Loaded content for "${tabBeingLoaded}", but current activeTab is "${tab}" — check if they match!`);
+        }, delay);
+    };
+
     // === BUG 5: A11y Violations ===
     const [rating, setRating] = useState(0);
     const [liked, setLiked] = useState(false);
@@ -93,14 +130,18 @@ export default function ProductDetails() {
                     {TABS.map((tab) => (
                         <button
                             key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-3 text-sm transition-colors ${activeTab === tab ? 'border-b-2 border-indigo-600 font-semibold text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                            onClick={() => handleTabClick(tab)}
+                            disabled={loadingTab !== null}
+                            className={`px-4 py-3 text-sm transition-colors disabled:opacity-60 ${activeTab === tab ? 'border-b-2 border-indigo-600 font-semibold text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
                         >
+                            {loadingTab === tab && <span className="inline-block w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mr-2\"></span>}
                             {tab} {tab === 'Reviews' && <span className="text-[10px] text-green-500 font-bold ml-1">{reviews.length}</span>}
                         </button>
                     ))}
                 </div>
                 <div className="p-6">
+                    {tabContent[activeTab] && <p className="text-xs text-slate-400 mb-3 pb-3 border-b border-slate-100">{tabContent[activeTab]}</p>}
+                    {loadingTab === activeTab && <p className="text-xs text-blue-500 mb-3">Loading content...</p>}
                     {activeTab === 'Overview' && <p className="text-sm text-slate-600">{product.description}</p>}
                     {activeTab === 'Specs' && (
                         <dl className="grid grid-cols-2 gap-3 text-sm">

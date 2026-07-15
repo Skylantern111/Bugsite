@@ -18,6 +18,8 @@ const columns = [
             { label: 'Orders', to: '/orders' },
             { label: 'Cart', to: '/cart' },
             { label: 'Notifications', to: '/notifications' },
+            { label: 'Analytics Training', to: '/analytics' },
+            { label: 'User Management', to: '/users' },
         ],
     },
     {

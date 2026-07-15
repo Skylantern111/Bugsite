@@ -29,6 +29,8 @@ const menuGroups = [
             { to: '/orders', label: 'Orders', icon: ListOrdered },
             { to: '/cart', label: 'Cart', icon: ShoppingCart },
             { to: '/notifications', label: 'Notifications', icon: Bell },
+            { to: '/analytics', label: 'Analytics Training', icon: Activity },
+            { to: '/users', label: 'User Management', icon: UserCircle },
         ],
     },
     {

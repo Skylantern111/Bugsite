@@ -19,7 +19,9 @@ React SPA ──fetch(HTTP)──► Express API (:4000) ──Admin SDK──�
   - **A real Firebase project** (cloud) — create one free at
     [console.firebase.google.com](https://console.firebase.google.com), enable
     **Firestore Database**, then generate a service account key under
-    **Project settings → Service accounts → Generate new private key**.
+    **Project settings → Service accounts → Generate new private key**. See
+    [`FIREBASE_CONSOLE_SETUP.md`](./FIREBASE_CONSOLE_SETUP.md) for a full
+    click-by-click guide.
   - **The Firestore emulator** (local, no account needed) —
     `npm install -g firebase-tools`, then `firebase emulators:start --only firestore`.
 - **Firebase console** (or the emulator's local Emulator UI) to browse the data.

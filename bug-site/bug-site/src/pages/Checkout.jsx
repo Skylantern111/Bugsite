@@ -14,6 +14,35 @@ export default function Checkout() {
 
     const [address, setAddress] = useState('');
 
+    // === BUG 34: Form Validation Bypass ===
+    // Validation checks are weak/missing — empty/whitespace-only fields pass.
+    const validateShippingForm = () => {
+        // BUG: Weak validation that always returns true
+        // Missing checks for:
+        // - address.trim().length === 0  (empty/whitespace strings)
+        // - email format validation
+        // - all required fields present
+        if (address === undefined) {
+            // This is never true — address is always a string
+            return false;
+        }
+        return true; // Always passes, even with empty input!
+    };
+
+    // === BUG 29: Duplicate Submission on Rapid Click ===
+    // "Place Order" button is not disabled during submission, allowing
+    // rapid clicks to create multiple orders before backend completes.
+    // No submission handler checks for in-flight requests.
+    const [submissions, setSubmissions] = useState(0);
+    const handlePlaceOrder = () => {
+        if (step === STEPS.length - 1) {
+            setSubmissions((prev) => prev + 1);
+            // Simulate order submission without debouncing or disabling button
+            console.warn(`[BUG 29] Order submitted! Total submissions in this session: ${submissions + 1}`);
+            setStep(STEPS.length);
+        }
+    };
+
     // === BUG 24: ReDoS ===
     const [promoCode, setPromoCode] = useState('');
     const [promoStatus, setPromoStatus] = useState(null);
@@ -29,7 +58,11 @@ export default function Checkout() {
 
     const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
 
-    const next = () => setStep((s) => Math.min(s + 1, STEPS.length));
+    const next = () => {
+        // BUG 34: No validation before advancing to next step
+        // Should check validateShippingForm() but doesn't
+        setStep((s) => Math.min(s + 1, STEPS.length));
+    };
     const prev = () => setStep((s) => Math.max(s - 1, 1));
 
     return (
@@ -54,7 +87,7 @@ export default function Checkout() {
                 {step === 1 && (
                     <div className="flex-grow">
                         <h2 className="font-semibold text-slate-800 mb-1">Shipping Details</h2>
-                        <p className="text-sm text-slate-500 mb-4">Enter your delivery address</p>
+                        <p className="text-sm text-slate-500 mb-4">Enter your delivery address (validation is broken!)</p>
                         <input
                             type="text"
                             value={address}
@@ -62,6 +95,7 @@ export default function Checkout() {
                             className="h-10 bg-slate-50 border border-slate-200 rounded-lg w-full px-3 text-sm focus:outline-none focus:border-indigo-500"
                             placeholder="123 Main St, City, State ZIP"
                         />
+                        <p className="text-[10px] text-red-500 mt-2">[BUG 34] Empty input accepted — try leaving this blank and click Next</p>
                     </div>
                 )}
                 {step === 2 && (
@@ -109,9 +143,10 @@ export default function Checkout() {
                     <button onClick={prev} disabled={step === 1} className="flex-1 py-2 text-sm font-medium text-slate-500 bg-slate-50 rounded-lg hover:bg-slate-100 border border-slate-200 disabled:opacity-40 cursor-pointer">
                         ← Back
                     </button>
-                    <button onClick={next} disabled={step === STEPS.length} className="flex-1 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-40 cursor-pointer">
+                    <button onClick={step === STEPS.length - 1 ? handlePlaceOrder : next} disabled={step === STEPS.length} className="flex-1 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-40 cursor-pointer">
                         {step === STEPS.length - 1 ? 'Place Order' : 'Next →'}
                     </button>
+                    {submissions > 0 && <span className="text-[10px] text-slate-400 absolute bottom-0 right-0">{submissions} submission(s)</span>}
                 </div>
             </div>
         </div>

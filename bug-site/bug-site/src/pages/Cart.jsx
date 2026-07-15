@@ -33,7 +33,7 @@ export default function Cart() {
 
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm divide-y divide-slate-100">
                 {cart.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-4">
+                    <div key={item.id} className="flex items-center justify-between p-4" data-product-id={item.id}>
                         <div>
                             <p className="text-sm font-medium text-slate-800">{item.name}</p>
                             <p className="text-xs text-slate-500">${item.price.toFixed(2)} each</p>
@@ -49,7 +49,21 @@ export default function Cart() {
                                 </button>
                                 <span className="text-sm font-semibold w-6 text-center">{item.qty}</span>
                             </div>
-                            <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-500 cursor-pointer">
+                            <button onClick={(e) => {
+                                // === BUG 31: Null Reference Error ===
+                                // Try to access a DOM attribute on the wrong element.
+                                // This assumes the parent has a data-wrong-id attribute which it doesn't,
+                                // causing a null reference error when accessing properties.
+                                try {
+                                    const itemRow = e.currentTarget.closest('[data-wrong-id]');
+                                    const productId = itemRow.getAttribute('data-wrong-id'); // itemRow is null!
+                                    removeFromCart(productId);
+                                } catch (err) {
+                                    // Silently try the correct way if the buggy way fails
+                                    console.warn('[BUG 31] Null reference caught:', err.message);
+                                    removeFromCart(item.id);
+                                }
+                            }} className="text-red-400 hover:text-red-500 cursor-pointer">
                                 <Trash2 className="w-4 h-4" />
                             </button>
                         </div>

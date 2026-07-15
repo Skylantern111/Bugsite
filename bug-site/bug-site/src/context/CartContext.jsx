@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import * as React from 'react';
 import { CartContext } from './cartStore';
 
 export function CartProvider({ children }) {
@@ -7,6 +8,19 @@ export function CartProvider({ children }) {
         { id: 'p2', name: 'USB-C Hub (7-in-1)', price: 34.50, qty: 1 },
         { id: 'p3', name: 'Mechanical Keyboard (TKL)', price: 129.00, qty: 1 },
     ]);
+
+    // === BUG 33: Cross-Tab State Desync ===
+    // Cart state is stored in localStorage but never synced across tabs.
+    // Missing useEffect to listen for storage events from other tabs.
+    // useEffect(() => {
+    //     const handleStorageChange = (e) => {
+    //         if (e.key === 'bugsite-cart') {
+    //             setCart(JSON.parse(e.newValue || '[]'));
+    //         }
+    //     };
+    //     window.addEventListener('storage', handleStorageChange);
+    //     return () => window.removeEventListener('storage', handleStorageChange);
+    // }, []);
 
     // Real add-to-cart flow (Catalog / PDP "Add to Cart" buttons) — this one
     // works correctly so the store is actually usable.
@@ -36,6 +50,12 @@ export function CartProvider({ children }) {
     const removeFromCart = (itemId) => {
         setCart((prev) => prev.filter((i) => i.id !== itemId));
     };
+
+    // Save to localStorage (but don't listen for changes from other tabs - Bug 33 state)
+    React.useEffect(() => {
+        localStorage.setItem('bugsite-cart', JSON.stringify(cart));
+        console.warn('[BUG 33] Cart saved to localStorage, but no listener for other tabs');
+    }, [cart]);
 
     return (
         <CartContext.Provider value={{ cart, addToCart, bumpQuantityMutating, removeFromCart }}>

@@ -21,10 +21,13 @@ import PartnerDeals from './pages/PartnerDeals';
 import Deals from './pages/Deals';
 import Compare from './pages/Compare';
 import Notifications from './pages/Notifications';
+import AnalyticsTrainingPage from './pages/AnalyticsTrainingPage';
+import UserManagementPage from './pages/UserManagementPage';
 import BugIndex from './pages/BugIndex';
 import Reviews from './pages/Reviews';
 import AdminProducts from './pages/AdminProducts';
 import AdminInventory from './pages/AdminInventory';
+import AdminReports from './pages/AdminReports';
 
 function AppShell() {
     const location = useLocation();
@@ -54,10 +57,13 @@ function AppShell() {
                     <Route path="/account" element={<Account />} />
                     <Route path="/orders" element={<Orders />} />
                     <Route path="/admin/analytics" element={<AdminAnalytics />} />
+                    <Route path="/admin/reports" element={<AdminReports />} />
                     <Route path="/deals" element={<Deals />} />
                     <Route path="/deals/:partnerSlug" element={<PartnerDeals />} />
                     <Route path="/compare" element={<Compare />} />
                     <Route path="/notifications" element={<Notifications />} />
+                    <Route path="/analytics" element={<AnalyticsTrainingPage />} />
+                    <Route path="/users" element={<UserManagementPage />} />
                     <Route path="/bugs" element={<BugIndex />} />
                     <Route path="/reviews" element={<Reviews />} />
                     <Route path="/admin/products" element={<AdminProducts />} />

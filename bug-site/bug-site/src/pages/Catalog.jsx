@@ -31,6 +31,19 @@ export default function Catalog() {
         console.log(`[API SPAM] Fetching results for: ${e.target.value}`);
     };
 
+    // === BUG 30: Infinite Loading Spinner ===
+    // Loading state set to true on filter/search, but never cleared on success.
+    // User sees the spinner indefinitely even though products are loaded.
+    const [isLoading, setIsLoading] = useState(false);
+    useEffect(() => {
+        if (searchQuery || activeCategory !== 'All') {
+            setIsLoading(true);
+            // BUG: Deliberately never clear the loading state
+            // setIsLoading(false); — this line is intentionally missing
+            console.warn('[BUG 30] Loading spinner stuck: state never cleared on success');
+        }
+    }, [searchQuery, activeCategory]);
+
     // New (bug-free) storefront controls: sort + max-price filter.
     const [sort, setSort] = useState('featured');
     const [maxPrice, setMaxPrice] = useState(250);
@@ -53,6 +66,9 @@ export default function Catalog() {
             .catch(() => { /* API down — keep static fallback */ });
         return () => { active = false; };
     }, []);
+
+    // Display loading indicator if isLoading is true
+    const showLoadingOverlay = isLoading && searchQuery;
 
     const filtered = useMemo(() => {
         const list = products.filter((p) => {
@@ -95,6 +111,15 @@ export default function Catalog() {
 
     return (
         <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 space-y-8">
+            {showLoadingOverlay && (
+                <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-8 text-center">
+                        <div className="animate-spin w-8 h-8 border-4 border-slate-200 border-t-indigo-600 rounded-full mx-auto mb-3"></div>
+                        <p className="text-sm text-slate-600 font-medium">Loading results...</p>
+                        <p className="text-[10px] text-slate-400 mt-2">[BUG 30] Spinner never closes</p>
+                    </div>
+                </div>
+            )}
             <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
                 <div>
                     <h1 className="text-3xl font-extrabold text-slate-900">Catalog</h1>

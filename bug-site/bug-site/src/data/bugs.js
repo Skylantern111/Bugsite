@@ -1,7 +1,14 @@
-// Catalog of the 28 intentional bugs, mirrored from BUGSITE_ARCHITECTURE_PLAN.md
+// Catalog of the 28+ intentional bugs, mirrored from BUGSITE_ARCHITECTURE_PLAN.md
 // (Section 4 master matrix). Used by the /bugs testing dashboard so testers and
 // AI agents have a single index of every vulnerability and how to trigger it.
 export const BUG_CATALOG = [
+    { id: 32, title: 'Hidden Unfinished Admin Route', group: 'State & Lifecycle', route: '/admin/reports', where: 'Reports page', trigger: 'Navigate to /admin/reports — page is blank with infinite spinner, UI elements are not implemented.' },
+    { id: 33, title: 'Cross-Tab State Desync', group: 'State & Lifecycle', route: '/cart', where: 'Cart state persistence', trigger: 'Open two tabs, add item in Tab A — Tab B\'s cart doesn\'t update (no storage event listener for syncing).' },
+    { id: 34, title: 'Form Accepts Empty Required Fields', group: 'Core Shopping', route: '/checkout', where: 'Shipping address form', trigger: 'Leave address blank or whitespace-only, click Next — form accepts and proceeds to Payment step (no validation).' },
+    { id: 35, title: 'Race Condition on Rapid Tab Switching', group: 'State & Lifecycle', route: '/product/premium-noise-canceling-headphones', where: 'PDP tabs async loading', trigger: 'Rapidly click between tabs before content loads — content mismatches active tab due to stale API responses (no cancellation).' },
+    { id: 29, title: 'Duplicate Submission on Rapid Click', group: 'Core Shopping', route: '/checkout', where: 'Place Order button', trigger: 'Rapidly click "Place Order" button multiple times before page updates — creates duplicate orders (no debounce/disable).' },
+    { id: 30, title: 'Infinite Loading Spinner', group: 'Core Shopping', route: '/catalog', where: 'Search/filter loading overlay', trigger: 'Search or filter products — a loading spinner appears and never disappears, blocking interaction.' },
+    { id: 31, title: 'Null Reference Error', group: 'Data & Analytics', route: '/cart', where: 'Remove item button', trigger: 'Remove a cart item — console shows error "Cannot read property getAttribute of null"; item still removes via fallback.' },
     { id: 1, title: 'Stale Closure', group: 'State & Lifecycle', route: '/admin/analytics', where: 'Revenue by Category widget', trigger: 'Switch the category tab — interval counters never reflect the selection (missing dependency).' },
     { id: 2, title: 'State Mutation', group: 'Core Shopping', route: '/cart', where: 'Quantity stepper', trigger: 'Press "+" — the array is mutated directly, so the displayed qty desyncs from cart length.' },
     { id: 3, title: 'Memory Leak', group: 'State & Lifecycle', route: '/catalog', where: 'Support chat widget (global)', trigger: 'Navigate between pages — scroll/resize listeners attach on every mount, never cleaned up.' },
